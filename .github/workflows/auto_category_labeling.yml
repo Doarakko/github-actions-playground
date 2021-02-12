@@ -28,11 +28,11 @@ jobs:
                 .match(/pokemon\//g) || []
             ).length;
             if (count >= 2) {
-              github.issues.removeLabels({
+              github.issues.removeLabel({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                labels: ['pokemon/pikachu']
+                labels: ['pokemon/pikachu'],
               });
             }
       - name: add pikachu if no pokemon

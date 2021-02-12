@@ -12,21 +12,16 @@ jobs:
         uses: actions/github-script@v3
         if: >-
           contains(github.event.issue.labels.*.name, 'pokemon/pikachu')
+          && join(github.event.issue.labels.*.name, ' ').split('pokemon/').length - 1 >= 2
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            console.log(context.issue.labels);
-            for (const label of context.issue.labels) {
-                if (contains(label, 'pokemon/') && label !== 'pokemon/pikachu'){
-                  github.issues.removeLabels({
-                    issue_number: context.issue.number,
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    labels: ['pokemon/pikachu']
-                  });
-                  break;
-                }
-            }
+            github.issues.removeLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['pokemon/pikachu']
+            });
       - name: add pikachu if no pokemon
         uses: actions/github-script@v3
         if: >-

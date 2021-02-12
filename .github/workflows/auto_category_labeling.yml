@@ -8,6 +8,24 @@ jobs:
   labeling:
     runs-on: ubuntu-latest
     steps:
+      - name: remove pikachu if pokemon except pikachu
+        uses: actions/github-script@v3
+        if: >-
+          contains(github.event.issue.labels.*.name, 'pokemon/pikachu')
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            for (const label of context.issue.labels.*.name) {
+                if (contains(label, 'pokemon/') && label !== 'pokemon/pikachu'){
+                  github.issues.removeLabels({
+                    issue_number: context.issue.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    labels: ['pokemon/pikachu']
+                  });
+                  break;
+                }
+            }
       - name: add pikachu if no pokemon
         uses: actions/github-script@v3
         if: >-
@@ -21,21 +39,3 @@ jobs:
               repo: context.repo.repo,
               labels: ['pokemon/pikachu']
             });
-      - name: remove pikachu if pokemon except pikachu
-        uses: actions/github-script@v3
-        if: >-
-          contains(github.event.issue.labels.*.name, 'pokemon/pikachu')
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            for (const label of context.issue.labels) {
-                if (contains(label, 'pokemon/') && label !== 'pokemon/pikachu'){
-                  github.issues.removeLabels({
-                    issue_number: context.issue.number,
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    labels: ['pokemon/pikachu']
-                  });
-                  break;
-                }
-            }

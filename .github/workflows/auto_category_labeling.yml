@@ -15,7 +15,8 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            for (const label of context.issue.labels.*.name) {
+            console.log(context.issue.labels);
+            for (const label of context.issue.labels) {
                 if (contains(label, 'pokemon/') && label !== 'pokemon/pikachu'){
                   github.issues.removeLabels({
                     issue_number: context.issue.number,

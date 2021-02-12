@@ -1,0 +1,38 @@
+name: auto_category_labeling
+on:
+  issues:
+    types: [opened, labeled, unlabeled]
+  push:
+
+jobs:
+  labeling:
+    runs-on: ubuntu-latest
+    steps:
+      - name: add pikachu if no pokemon
+        uses: actions/github-script@v3
+        if: >-
+          ! contains(github.event.issue.labels.*.name, 'pokemon/')
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['pokemon/pikachu']
+            })
+      - name: remove pikachu if pokemon except pikachu
+        uses: actions/github-script@v3
+        if: >-
+          contains(github.event.issue.labels.*.name, 'pokemon/pikachu')
+          && contains(github.event.issue.labels.*.name, 'pokemon/'
+          && github.event.issue.labels.*.name != 'pokemon/pikachu'
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['pokemon/pikachu']
+            })

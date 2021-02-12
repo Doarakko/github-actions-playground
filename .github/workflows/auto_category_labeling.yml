@@ -21,7 +21,12 @@ jobs:
               issue_number: context.issue.number,
             });
 
-            count = (issue.data.labels.join(',').match(/pokemon\//g) || []).length;
+            count = (
+              issue.data.labels
+                .map((label) => label.name)
+                .join(',')
+                .match(/pokemon\//g) || []
+            ).length;
             if (count >= 2) {
               github.issues.removeLabels({
                 issue_number: context.issue.number,

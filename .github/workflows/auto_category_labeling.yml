@@ -11,8 +11,7 @@ jobs:
       - name: remove pikachu if pokemon except pikachu
         uses: actions/github-script@v3
         if: >-
-          contains(github.event.issue.labels.*.name, 'pokemon/pikachu')
-          && join(github.event.issue.labels.*.name, ' ').split('pokemon/').length - 1 >= 2
+          join(github.event.issue.labels.*.name, ',').split('pokemon/').length - 1 >= 2
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |

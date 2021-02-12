@@ -38,7 +38,7 @@ jobs:
       - name: add pikachu if no pokemon
         uses: actions/github-script@v3
         if: >-
-          ! contains(github.event.issue.labels.*.name, 'pokemon/')
+          ! contains(join(github.event.issue.labels.*.name, ','), 'pokemon/')
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |

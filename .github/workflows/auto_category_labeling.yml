@@ -1,8 +1,7 @@
-name: auto_category_labeling
+name: auto category labeling
 on:
   issues:
     types: [opened, labeled, unlabeled]
-  push:
 
 jobs:
   labeling:

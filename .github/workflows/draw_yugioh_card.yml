@@ -16,9 +16,9 @@ jobs:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             let request = new XMLHttpRequest();
-            const URL = "https://db.ygoprodeck.com/api/v7/randomcard.php";
+            const url = "https://db.ygoprodeck.com/api/v7/randomcard.php";
 
-            request.open("GET", URL);
+            request.open("GET", url);
             request.send();
             request.onload = () => {
               if (request.status === 200) {

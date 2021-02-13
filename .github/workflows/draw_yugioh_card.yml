@@ -1,0 +1,27 @@
+name: draw Yu-Gi-Oh! card
+on:
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    steps:
+      - name: draw Yu-Gi-Oh! card on issue
+        uses: actions/github-script@v3
+        if: >-
+          contains(github.event.issue.comment.body, 'draw')
+          || contains(github.event.issue.comment.body, 'ドロー')
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const URL = "https://db.ygoprodeck.com/api/v7/randomcard.php";
+            const responce = await (await fetch(URL)).json();
+            const imageUrl = responce.card_images[0].image_url;
+
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "![](" + imageUrl + ")",
+            });

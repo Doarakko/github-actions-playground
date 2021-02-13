@@ -8,14 +8,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: draw Yu-Gi-Oh! card on issue
-        uses: Doarakko/github-script@master
+        uses: satackey/action-js-inline@v0.0.3
         if: >-
           contains(github.event.comment.body, 'draw')
           || contains(github.event.comment.body, 'ドロー')
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
             let request = new XMLHttpRequest();
             const URL = "https://db.ygoprodeck.com/api/v7/randomcard.php";
 

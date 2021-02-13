@@ -10,8 +10,8 @@ jobs:
       - name: draw Yu-Gi-Oh! card on issue
         uses: actions/github-script@v3
         if: >-
-          contains(github.event.issue.comment.body, 'draw')
-          || contains(github.event.issue.comment.body, 'ドロー')
+          contains(github.event.comment.body, 'draw')
+          || contains(github.event.comment.body, 'ドロー')
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |

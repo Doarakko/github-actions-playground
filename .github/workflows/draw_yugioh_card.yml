@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: draw Yu-Gi-Oh! card on issue
-        uses: satackey/action-js-inline@v0.0.3
+        uses: satackey/action-js-inline@release-master
         if: >-
           contains(github.event.comment.body, 'draw')
           || contains(github.event.comment.body, 'ドロー')

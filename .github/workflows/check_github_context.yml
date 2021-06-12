@@ -1,0 +1,11 @@
+name: context_dump
+on:
+  issues:
+    types: [opened, edited, assigned, unassigned, labeled, unlabeled]
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: dump context
+        run: echo '${{ toJSON(github) }}'

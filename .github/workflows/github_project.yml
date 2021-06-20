@@ -4,7 +4,7 @@ on:
     types: [assigned]
 
 jobs:
-  -github-project:automate
+  automate-github-project:
     runs-on: ubuntu-latest
     steps:
       - name: 

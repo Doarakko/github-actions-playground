@@ -10,7 +10,7 @@ jobs:
       - name: 
         uses: Doarakko/github-project-automation-plus@main
         if: >-
-          contains(github.event.issue.lablels.*.name, 'barcelona')
+          contains(github.event.issue.labels.*.name, 'barcelona')
         with:
           project: GitHub Actions Playground
           column: To do

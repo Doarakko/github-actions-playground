@@ -12,7 +12,7 @@ jobs:
         if: >-
           contains(github.event.issue.labels.*.name, 'barcelona')
         with:
-          project: GitHub Actions Playground
+          project: Playground
           column: To do
           action: add
           repo-token: ${{ secrets.GITHUB_TOKEN }}

@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 
-        uses: alex-page/github-project-automation-plus@v0.6.0
+        uses: Doarakko/github-project-automation-plus@main
         if: >-
           contains(github.event.issue.labels.*.name, 'barcelona')
         with:

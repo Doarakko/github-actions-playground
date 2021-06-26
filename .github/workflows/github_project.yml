@@ -1,17 +1,18 @@
 name: 'GitHub Actions Playground'
 on:
   issues:
-    types: [assigned]
+    types: [labeled]
 
 jobs:
   automate-github-project:
     runs-on: ubuntu-latest
     steps:
       - name: 
-        uses: alex-page/github-project-automation-plus@v0.7.1
+        uses: Doarakko/github-project-automation-plus@main
         if: >-
-          contains(github.event.issue.assignees.*.login, 'Doarakko')
+          contains(github.event.issue.lablels.*.name, 'barcelona')
         with:
           project: GitHub Actions Playground
           column: To do
-          repo-token: ${{ secrets.GHPROJECT_TOKEN }}
+          action: add
+          repo-token: ${{ secrets.GITHUB_TOKEN }}

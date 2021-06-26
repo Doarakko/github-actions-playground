@@ -14,5 +14,5 @@ jobs:
         with:
           project: Playground
           column: To do
-          action: update
+          action: add
           repo-token: ${{ secrets.GHPROJECT_TOKEN }}

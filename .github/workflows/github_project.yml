@@ -8,11 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 
-        uses: Doarakko/github-project-automation-plus@main
+        uses: alex-page/github-project-automation-plus@v0.6.0
         if: >-
           contains(github.event.issue.labels.*.name, 'barcelona')
         with:
           project: Playground
           column: To do
-          action: add
+          action: update
           repo-token: ${{ secrets.GITHUB_TOKEN }}

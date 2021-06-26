@@ -15,4 +15,4 @@ jobs:
           project: GitHub Actions Playground
           column: To do
           action: add
-          repo-token: ${{ secrets.GHPROJECT_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}

@@ -24,7 +24,7 @@ jobs:
         with:
           poetry-version: ${{ matrix.poetry-version }}
       - name: Cleanup
-        run: rm requirements.txt
+        run: rm requirements.txt || true
       - name: Export requirements.txt
         run: poetry export -f requirements.txt --output requirements.txt
       - name: Update requirements.txt

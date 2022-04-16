@@ -1,5 +1,3 @@
----
-name: "barcelona"
-about: "next"
-title: "pedri or gavi"
----
+# type 
+
+pedri or gavi

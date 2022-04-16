@@ -1,0 +1,35 @@
+name: pr labeler
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  labeling:
+    runs-on: ubuntu-latest
+    steps:
+      - name: add pedri
+        uses: actions/github-script@v3
+        if: >-
+          contains(github.event.pull_request.title, 'pedri')
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['barcelona/pedri']
+            });
+      - name: add gavi
+        uses: actions/github-script@v3
+        if: >-
+          contains(github.event.pull_request.title, 'gavi')
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['barcelona/pikachu']
+            });

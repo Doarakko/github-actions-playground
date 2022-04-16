@@ -10,7 +10,7 @@ jobs:
       - name: add pedri
         uses: actions/github-script@v3
         if: >-
-          contains(github.event.pull_request.title, 'pedri')
+          contains(github.event.pull_request.body, 'pedri')
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
@@ -23,7 +23,7 @@ jobs:
       - name: add gavi
         uses: actions/github-script@v3
         if: >-
-          contains(github.event.pull_request.title, 'gavi')
+          contains(github.event.pull_request.body, 'gavi')
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
@@ -31,5 +31,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: ['barcelona/pikachu']
+              labels: ['barcelona/gavi']
             });

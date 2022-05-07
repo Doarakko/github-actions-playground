@@ -2,7 +2,6 @@ name: deploy cloud funcstions
 
 on:
   push:
-    branches: [ master ]
 
 defaults:
   run:
@@ -15,23 +14,6 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-node@v3
-      with:
-        node-version: 14
-    - id: 'build'
-      run: |
-        npm install
-        npm run build
-
-    - id: 'commit'
-      uses: stefanzweifel/git-auto-commit-action@v4.12.0
-      with:
-        commit_message: update functions
-        commit_user_name: GitHub Actions
-        commit_user_email: actions@github.com
 
     - id: 'auth'
       uses: 'google-github-actions/auth@v0'

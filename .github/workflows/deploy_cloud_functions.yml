@@ -1,0 +1,20 @@
+jobs:
+  job_id:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - uses: 'actions/checkout@v3'
+
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v0'
+      with:
+        workload_identity_provider: 'projects/38660830011/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
+        service_account: 'deploy@cloud-functions-playgrou-aa0f6.iam.gserviceaccount.com'
+
+    - id: 'deploy'
+      uses: 'google-github-actions/deploy-cloud-functions@v0'
+      with:
+        name: 'my-function'
+        runtime: 'nodejs16'

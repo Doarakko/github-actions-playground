@@ -25,4 +25,5 @@ jobs:
       uses: 'google-github-actions/deploy-cloud-functions@v0'
       with:
         name: 'my-function'
+        source_dir: 'functions'
         runtime: 'nodejs16'

@@ -1,3 +1,9 @@
+name: deploy cloud funcstions
+
+on:
+  push:
+    branches: [ master ]
+
 jobs:
   job_id:
     permissions:

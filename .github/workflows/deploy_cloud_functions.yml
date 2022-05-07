@@ -22,7 +22,9 @@ jobs:
       with:
         node-version: 14
     - id: 'build'
-      run: npm run build
+      run: |
+        npm install
+        npm run build
 
     - id: 'commit'
       uses: stefanzweifel/git-auto-commit-action@v4.12.0

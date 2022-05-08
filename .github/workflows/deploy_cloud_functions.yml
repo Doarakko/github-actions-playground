@@ -1,7 +1,7 @@
 name: deploy cloud funcstions
 
 on:
-  push:
+  push: master
 
 defaults:
   run:
@@ -11,12 +11,16 @@ jobs:
   job_id:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
     steps:
     - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+    - id: 'build'
+      run: |
+        npm ci
+        npm run build
+
     - id: 'auth'
       uses: 'google-github-actions/auth@v0'
       with:

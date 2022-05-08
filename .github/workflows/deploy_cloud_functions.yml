@@ -38,4 +38,5 @@ jobs:
       with:
         name: 'helloWorld'
         source_dir: 'functions'
+        region: 'asia-northeast1'
         runtime: 'nodejs16'

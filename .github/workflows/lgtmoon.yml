@@ -12,6 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: LGTM
-        uses: sntkn/action-lgtmoon/@fix/pr-review-comment
+        uses: Doarakko/action-lgtmoon/@main
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}

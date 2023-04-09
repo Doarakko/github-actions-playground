@@ -1,0 +1,42 @@
+name: deploy cloud funcstions
+
+on:
+  push:
+    branches: [ master ]
+
+defaults:
+  run:
+    working-directory: functions
+
+jobs:
+  job_id:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 16
+
+    - id: 'build'
+      run: |
+        npm ci
+        npm run build
+
+    - id: 'auth'
+      uses: 'google-github-actions/auth@v0'
+      with:
+        workload_identity_provider: 'projects/38660830011/locations/global/workloadIdentityPools/demo/providers/demo'
+        service_account: 'deploy@cloud-functions-playgrou-aa0f6.iam.gserviceaccount.com'
+
+    - id: 'deploy'
+      uses: 'google-github-actions/deploy-cloud-functions@v0'
+      with:
+        name: 'helloWorld'
+        source_dir: 'functions'
+        region: 'asia-northeast1'
+        runtime: 'nodejs16'

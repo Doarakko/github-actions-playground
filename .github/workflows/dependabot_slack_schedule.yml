@@ -14,6 +14,10 @@ on:
         description: "通知するセキュリティレベル (all / critical,high / medium / low)"
         required: false
         default: "all"
+      mention:
+        description: "Slack メンション先 (例: @channel, <@U12345>)"
+        required: false
+        default: ""
 
 jobs:
   # ---------- スケジュール実行 ----------
@@ -22,6 +26,7 @@ jobs:
     uses: ./.github/workflows/dependabot_slack_notification.yml
     with:
       severity_filter: "critical,high"
+      mention: "<!channel>"
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
@@ -30,6 +35,7 @@ jobs:
     uses: ./.github/workflows/dependabot_slack_notification.yml
     with:
       severity_filter: "medium"
+      mention: "<!here>"
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
@@ -47,5 +53,6 @@ jobs:
     uses: ./.github/workflows/dependabot_slack_notification.yml
     with:
       severity_filter: ${{ inputs.severity_filter }}
+      mention: ${{ inputs.mention }}
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

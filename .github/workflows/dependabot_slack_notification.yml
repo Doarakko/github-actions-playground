@@ -7,6 +7,11 @@ on:
         description: "通知するセキュリティレベル (カンマ区切り: critical,high,medium,low / all)"
         required: true
         type: string
+      mention:
+        description: "Slack メンション先 (例: @channel, @here, <@U12345>, <!subteam^S12345>)"
+        required: false
+        type: string
+        default: ""
     secrets:
       SLACK_WEBHOOK_URL:
         required: true
@@ -23,6 +28,7 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SEVERITY_FILTER: ${{ inputs.severity_filter }}
+          MENTION: ${{ inputs.mention }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -116,6 +122,8 @@ jobs:
               .map(([sev, n]) => `${severityEmoji[sev] || '⚪'} ${sev}: ${n}`)
               .join('  |  ');
 
+            const mention = (process.env.MENTION || '').trim();
+
             const payload = {
               blocks: [
                 {
@@ -125,6 +133,13 @@ jobs:
                     text: `🔒 Dependabot Security Alerts (${filtered.length} 件)`,
                   },
                 },
+                ...(mention ? [{
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: mention,
+                  },
+                }] : []),
                 {
                   type: 'section',
                   text: {

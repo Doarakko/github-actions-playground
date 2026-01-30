@@ -1,19 +1,15 @@
-name: Dependabot Slack Notification
+name: Dependabot Slack Notification (Reusable)
 
 on:
-  schedule:
-    # critical/high: 毎日 9:00 JST (0:00 UTC)
-    - cron: "0 0 * * *"
-    # medium: 毎週月曜 9:00 JST
-    - cron: "0 0 * * 1"
-    # low: 毎月1日 9:00 JST
-    - cron: "0 0 1 * *"
-  workflow_dispatch:
+  workflow_call:
     inputs:
       severity_filter:
-        description: "通知するセキュリティレベル (all / critical / high / medium / low)"
-        required: false
-        default: "all"
+        description: "通知するセキュリティレベル (カンマ区切り: critical,high,medium,low / all)"
+        required: true
+        type: string
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
 
 jobs:
   notify:
@@ -26,29 +22,14 @@ jobs:
         uses: actions/github-script@v7
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SEVERITY_FILTER: ${{ inputs.severity_filter }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
 
-            // --------------- 設定 ---------------
-            // スケジュール or 手動入力でフィルタを決定
             const severityOrder = ['critical', 'high', 'medium', 'low'];
-
-            function getSeverityFilter() {
-              // workflow_dispatch の場合
-              const input = context.payload.inputs?.severity_filter;
-              if (input) return input;
-
-              // schedule の場合: cron の値で判定
-              const cron = context.payload.schedule;
-              if (cron === '0 0 * * *')  return 'critical,high';   // 毎日
-              if (cron === '0 0 * * 1')  return 'medium';          // 毎週
-              if (cron === '0 0 1 * *')  return 'low';             // 毎月
-              return 'all';
-            }
-
-            const filterStr = getSeverityFilter();
+            const filterStr = process.env.SEVERITY_FILTER || 'all';
             const allowedSeverities = filterStr === 'all'
               ? severityOrder
               : filterStr.split(',').map(s => s.trim());
@@ -88,10 +69,8 @@ jobs:
                 || a.security_advisory?.severity?.toLowerCase()
                 || 'unknown';
 
-              // severity フィルタ
               if (!allowedSeverities.includes(severity)) return false;
 
-              // ignore リスト (GHSA ID またはアラート番号で除外)
               const ghsaId = a.security_advisory?.ghsa_id || '';
               if (ignoredAlerts.includes(ghsaId)) return false;
               if (ignoredAlerts.includes(a.number)) return false;
@@ -125,7 +104,6 @@ jobs:
               return `${emoji} *[${sev.toUpperCase()}]* <${url}|#${a.number}> \`${pkg}\` - ${summary}`;
             });
 
-            // severity ごとの件数サマリ
             const counts = {};
             filtered.forEach(a => {
               const sev = a.security_vulnerability?.severity?.toLowerCase()

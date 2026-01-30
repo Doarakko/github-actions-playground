@@ -1,0 +1,185 @@
+name: Dependabot Slack Notification
+
+on:
+  schedule:
+    # critical/high: 毎日 9:00 JST (0:00 UTC)
+    - cron: "0 0 * * *"
+    # medium: 毎週月曜 9:00 JST
+    - cron: "0 0 * * 1"
+    # low: 毎月1日 9:00 JST
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+    inputs:
+      severity_filter:
+        description: "通知するセキュリティレベル (all / critical / high / medium / low)"
+        required: false
+        default: "all"
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch Dependabot alerts and notify Slack
+        uses: actions/github-script@v7
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            // --------------- 設定 ---------------
+            // スケジュール or 手動入力でフィルタを決定
+            const severityOrder = ['critical', 'high', 'medium', 'low'];
+
+            function getSeverityFilter() {
+              // workflow_dispatch の場合
+              const input = context.payload.inputs?.severity_filter;
+              if (input) return input;
+
+              // schedule の場合: cron の値で判定
+              const cron = context.payload.schedule;
+              if (cron === '0 0 * * *')  return 'critical,high';   // 毎日
+              if (cron === '0 0 * * 1')  return 'medium';          // 毎週
+              if (cron === '0 0 1 * *')  return 'low';             // 毎月
+              return 'all';
+            }
+
+            const filterStr = getSeverityFilter();
+            const allowedSeverities = filterStr === 'all'
+              ? severityOrder
+              : filterStr.split(',').map(s => s.trim());
+
+            // --------------- Ignore リスト読み込み ---------------
+            let ignoredAlerts = [];
+            try {
+              const raw = fs.readFileSync('.github/dependabot-slack-ignore.json', 'utf8');
+              ignoredAlerts = JSON.parse(raw).ignored_alerts || [];
+            } catch (_) {
+              // ファイルが無ければ無視
+            }
+
+            // --------------- アラート取得 ---------------
+            let alerts = [];
+            try {
+              const res = await github.rest.dependabot.listAlertsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              });
+              alerts = res.data;
+            } catch (e) {
+              core.warning(`Dependabot alerts の取得に失敗しました: ${e.message}`);
+              return;
+            }
+
+            if (alerts.length === 0) {
+              core.info('オープンな Dependabot アラートはありません。');
+              return;
+            }
+
+            // --------------- フィルタリング ---------------
+            const filtered = alerts.filter(a => {
+              const severity = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+
+              // severity フィルタ
+              if (!allowedSeverities.includes(severity)) return false;
+
+              // ignore リスト (GHSA ID またはアラート番号で除外)
+              const ghsaId = a.security_advisory?.ghsa_id || '';
+              if (ignoredAlerts.includes(ghsaId)) return false;
+              if (ignoredAlerts.includes(a.number)) return false;
+
+              return true;
+            });
+
+            if (filtered.length === 0) {
+              core.info(`対象セキュリティレベル (${filterStr}) のアラートはありません。`);
+              return;
+            }
+
+            // --------------- Slack メッセージ構築 ---------------
+            const severityEmoji = {
+              critical: '🔴',
+              high:     '🟠',
+              medium:   '🟡',
+              low:      '🔵',
+            };
+
+            const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
+
+            const lines = filtered.map(a => {
+              const sev = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+              const emoji = severityEmoji[sev] || '⚪';
+              const pkg = a.security_vulnerability?.package?.name || 'unknown';
+              const summary = a.security_advisory?.summary || 'No summary';
+              const url = a.html_url;
+              return `${emoji} *[${sev.toUpperCase()}]* <${url}|#${a.number}> \`${pkg}\` - ${summary}`;
+            });
+
+            // severity ごとの件数サマリ
+            const counts = {};
+            filtered.forEach(a => {
+              const sev = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+              counts[sev] = (counts[sev] || 0) + 1;
+            });
+            const countSummary = Object.entries(counts)
+              .sort(([a], [b]) => severityOrder.indexOf(a) - severityOrder.indexOf(b))
+              .map(([sev, n]) => `${severityEmoji[sev] || '⚪'} ${sev}: ${n}`)
+              .join('  |  ');
+
+            const payload = {
+              blocks: [
+                {
+                  type: 'header',
+                  text: {
+                    type: 'plain_text',
+                    text: `🔒 Dependabot Security Alerts (${filtered.length} 件)`,
+                  },
+                },
+                {
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: `*Repo:* <${repoUrl}|${context.repo.owner}/${context.repo.repo}>\n*Filter:* ${filterStr}\n*Summary:* ${countSummary}`,
+                  },
+                },
+                { type: 'divider' },
+                {
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: lines.join('\n'),
+                  },
+                },
+              ],
+            };
+
+            // --------------- Slack 送信 ---------------
+            const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+            if (!webhookUrl) {
+              core.setFailed('SLACK_WEBHOOK_URL が設定されていません。');
+              return;
+            }
+
+            const resp = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            if (!resp.ok) {
+              core.setFailed(`Slack 送信失敗: ${resp.status} ${await resp.text()}`);
+            } else {
+              core.info(`Slack に ${filtered.length} 件のアラートを通知しました。`);
+            }

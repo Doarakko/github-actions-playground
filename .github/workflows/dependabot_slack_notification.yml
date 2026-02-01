@@ -25,17 +25,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Parse ignore list
+        id: ignore
+        run: |
+          FILE=".github/dependabot-slack-ignore.yml"
+          if [ -f "$FILE" ]; then
+            echo "json=$(yq -o=json '.' "$FILE")" >> "$GITHUB_OUTPUT"
+          else
+            echo 'json={"ignored_alerts":[]}' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Fetch Dependabot alerts and notify Slack
         uses: actions/github-script@v7
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SEVERITY_FILTER: ${{ inputs.severity_filter }}
           MENTION: ${{ inputs.mention }}
+          IGNORE_LIST_JSON: ${{ steps.ignore.outputs.json }}
         with:
           github-token: ${{ secrets.DEPENDABOT_TOKEN }}
           script: |
-            const fs = require('fs');
-
             const severityOrder = ['critical', 'high', 'medium', 'low'];
             const filterStr = process.env.SEVERITY_FILTER || 'all';
             const allowedSeverities = filterStr === 'all'
@@ -45,19 +54,8 @@ jobs:
             // --------------- Ignore リスト読み込み ---------------
             let ignoredAlerts = [];
             try {
-              const raw = fs.readFileSync('.github/dependabot-slack-ignore.yml', 'utf8');
-              const entries = [];
-              let current = null;
-              for (const line of raw.split('\n')) {
-                const idMatch = line.match(/^\s*-?\s*id:\s*"?([^"]+)"?\s*$/);
-                const reasonMatch = line.match(/^\s*reason:\s*"?([^"]*)"?\s*$/);
-                if (idMatch) {
-                  current = { id: idMatch[1].trim() };
-                  entries.push(current);
-                } else if (reasonMatch && current) {
-                  current.reason = reasonMatch[1].trim();
-                }
-              }
+              const ignoreData = JSON.parse(process.env.IGNORE_LIST_JSON || '{}');
+              const entries = ignoreData.ignored_alerts || [];
               for (const entry of entries) {
                 if (!entry.id || !entry.reason) {
                   core.setFailed(`Ignore list のエントリに id と reason は必須です: ${JSON.stringify(entry)}`);
@@ -66,9 +64,8 @@ jobs:
                 ignoredAlerts.push(String(entry.id));
               }
             } catch (e) {
-              if (e.code !== 'ENOENT') {
-                core.warning(`Ignore list の読み込みに失敗しました: ${e.message}`);
-              }
+              core.setFailed(`Ignore list の JSON パースに失敗しました: ${e.message}`);
+              return;
             }
 
             // --------------- アラート取得 ---------------
@@ -201,11 +198,17 @@ jobs:
               return;
             }
 
-            const resp = await fetch(webhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-            });
+            let resp;
+            try {
+              resp = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+            } catch (e) {
+              core.setFailed(`Slack 送信中にエラーが発生しました: ${e.message}`);
+              return;
+            }
 
             if (!resp.ok) {
               core.setFailed(`Slack 送信失敗: ${resp.status} ${await resp.text()}`);

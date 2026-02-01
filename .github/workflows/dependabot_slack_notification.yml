@@ -46,7 +46,16 @@ jobs:
             let ignoredAlerts = [];
             try {
               const raw = fs.readFileSync('.github/dependabot-slack-ignore.json', 'utf8');
-              ignoredAlerts = JSON.parse(raw).ignored_alerts || [];
+              const parsed = JSON.parse(raw).ignored_alerts || [];
+              ignoredAlerts = parsed.map(entry => {
+                if (typeof entry === 'object' && entry !== null) {
+                  if (!entry.id || !entry.reason) {
+                    core.warning(`Ignore list のエントリに id または reason がありません: ${JSON.stringify(entry)}`);
+                  }
+                  return String(entry.id);
+                }
+                return String(entry);
+              });
             } catch (e) {
               if (e.code !== 'ENOENT') {
                 core.warning(`Ignore list の読み込みに失敗しました: ${e.message}`);
@@ -82,7 +91,7 @@ jobs:
               if (!allowedSeverities.includes(severity)) return false;
 
               const ghsaId = a.security_advisory?.ghsa_id || '';
-              if (ignoredAlerts.includes(ghsaId)) return false;
+              if (ghsaId && ignoredAlerts.includes(ghsaId)) return false;
               if (ignoredAlerts.includes(String(a.number))) return false;
 
               return true;

@@ -58,12 +58,13 @@ jobs:
                   current.reason = reasonMatch[1].trim();
                 }
               }
-              ignoredAlerts = entries.map(entry => {
+              for (const entry of entries) {
                 if (!entry.id || !entry.reason) {
-                  core.warning(`Ignore list のエントリに id または reason がありません: ${JSON.stringify(entry)}`);
+                  core.setFailed(`Ignore list のエントリに id と reason は必須です: ${JSON.stringify(entry)}`);
+                  return;
                 }
-                return String(entry.id);
-              });
+                ignoredAlerts.push(String(entry.id));
+              }
             } catch (e) {
               if (e.code !== 'ENOENT') {
                 core.warning(`Ignore list の読み込みに失敗しました: ${e.message}`);

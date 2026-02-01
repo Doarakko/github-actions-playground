@@ -1,0 +1,217 @@
+name: Dependabot Slack Notification (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      severity_filter:
+        description: "通知するセキュリティレベル (カンマ区切り: critical,high,medium,low / all)"
+        required: true
+        type: string
+      mention:
+        description: "Slack メンション先 (例: @channel, @here, <@U12345>, <!subteam^S12345>)"
+        required: false
+        type: string
+        default: ""
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
+      DEPENDABOT_TOKEN:
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse ignore list
+        id: ignore
+        run: |
+          FILE=".github/dependabot-slack-ignore.yml"
+          if [ -f "$FILE" ]; then
+            echo "json=$(yq -o=json '.' "$FILE")" >> "$GITHUB_OUTPUT"
+          else
+            echo 'json={"ignored_alerts":[]}' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch Dependabot alerts and notify Slack
+        uses: actions/github-script@v7
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SEVERITY_FILTER: ${{ inputs.severity_filter }}
+          MENTION: ${{ inputs.mention }}
+          IGNORE_LIST_JSON: ${{ steps.ignore.outputs.json }}
+        with:
+          github-token: ${{ secrets.DEPENDABOT_TOKEN }}
+          script: |
+            const severityOrder = ['critical', 'high', 'medium', 'low'];
+            const filterStr = process.env.SEVERITY_FILTER || 'all';
+            const allowedSeverities = filterStr === 'all'
+              ? severityOrder
+              : filterStr.split(',').map(s => s.trim());
+
+            // --------------- Ignore リスト読み込み ---------------
+            let ignoredAlerts = [];
+            try {
+              const ignoreData = JSON.parse(process.env.IGNORE_LIST_JSON || '{}');
+              const entries = ignoreData.ignored_alerts || [];
+              for (const entry of entries) {
+                if (!entry.id || !entry.reason) {
+                  core.setFailed(`Ignore list のエントリに id と reason は必須です: ${JSON.stringify(entry)}`);
+                  return;
+                }
+                ignoredAlerts.push(String(entry.id));
+              }
+            } catch (e) {
+              core.setFailed(`Ignore list の JSON パースに失敗しました: ${e.message}`);
+              return;
+            }
+
+            // --------------- アラート取得 ---------------
+            let alerts = [];
+            try {
+              const res = await github.rest.dependabot.listAlertsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              });
+              alerts = res.data;
+            } catch (e) {
+              core.setFailed(`Dependabot alerts の取得に失敗しました: ${e.message}`);
+              return;
+            }
+
+            if (alerts.length === 0) {
+              core.info('オープンな Dependabot アラートはありません。');
+              return;
+            }
+
+            // --------------- フィルタリング ---------------
+            const filtered = alerts.filter(a => {
+              const severity = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+
+              if (!allowedSeverities.includes(severity)) return false;
+
+              const ghsaId = a.security_advisory?.ghsa_id || '';
+              if (ghsaId && ignoredAlerts.includes(ghsaId)) return false;
+              if (ignoredAlerts.includes(String(a.number))) return false;
+
+              return true;
+            });
+
+            if (filtered.length === 0) {
+              core.info(`対象セキュリティレベル (${filterStr}) のアラートはありません。`);
+              return;
+            }
+
+            // --------------- Slack メッセージ構築 ---------------
+            const severityEmoji = {
+              critical: '🔴',
+              high:     '🟠',
+              medium:   '🟡',
+              low:      '🔵',
+            };
+
+            const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
+
+            const lines = filtered.map(a => {
+              const sev = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+              const emoji = severityEmoji[sev] || '⚪';
+              const pkg = a.security_vulnerability?.package?.name || 'unknown';
+              const summary = a.security_advisory?.summary || 'No summary';
+              const url = a.html_url;
+              return `${emoji} *[${sev.toUpperCase()}]* <${url}|#${a.number}> \`${pkg}\` - ${summary}`;
+            });
+
+            const counts = {};
+            filtered.forEach(a => {
+              const sev = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+              counts[sev] = (counts[sev] || 0) + 1;
+            });
+            const countSummary = Object.entries(counts)
+              .sort(([a], [b]) => severityOrder.indexOf(a) - severityOrder.indexOf(b))
+              .map(([sev, n]) => `${severityEmoji[sev] || '⚪'} ${sev}: ${n}`)
+              .join('  |  ');
+
+            const mention = (process.env.MENTION || '').trim();
+
+            const payload = {
+              blocks: [
+                {
+                  type: 'header',
+                  text: {
+                    type: 'plain_text',
+                    text: `🔒 Dependabot Security Alerts (${filtered.length} 件)`,
+                  },
+                },
+                ...(mention ? [{
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: mention,
+                  },
+                }] : []),
+                {
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: `*Repo:* <${repoUrl}|${context.repo.owner}/${context.repo.repo}>\n*Filter:* ${filterStr}\n*Summary:* ${countSummary}`,
+                  },
+                },
+                { type: 'divider' },
+                ...(() => {
+                  const joined = lines.join('\n');
+                  if (joined.length <= 3000) {
+                    return [{ type: 'section', text: { type: 'mrkdwn', text: joined } }];
+                  }
+                  // Split into multiple sections within 3000 char limit
+                  const sections = [];
+                  let current = '';
+                  for (const line of lines) {
+                    if (current && (current + '\n' + line).length > 3000) {
+                      sections.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
+                      current = line;
+                    } else {
+                      current = current ? current + '\n' + line : line;
+                    }
+                  }
+                  if (current) {
+                    sections.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
+                  }
+                  return sections;
+                })(),
+              ],
+            };
+
+            // --------------- Slack 送信 ---------------
+            const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+            if (!webhookUrl) {
+              core.setFailed('SLACK_WEBHOOK_URL が設定されていません。');
+              return;
+            }
+
+            let resp;
+            try {
+              resp = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+            } catch (e) {
+              core.setFailed(`Slack 送信中にエラーが発生しました: ${e.message}`);
+              return;
+            }
+
+            if (!resp.ok) {
+              core.setFailed(`Slack 送信失敗: ${resp.status} ${await resp.text()}`);
+            } else {
+              core.info(`Slack に ${filtered.length} 件のアラートを通知しました。`);
+            }

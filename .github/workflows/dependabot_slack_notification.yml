@@ -45,16 +45,24 @@ jobs:
             // --------------- Ignore リスト読み込み ---------------
             let ignoredAlerts = [];
             try {
-              const raw = fs.readFileSync('.github/dependabot-slack-ignore.json', 'utf8');
-              const parsed = JSON.parse(raw).ignored_alerts || [];
-              ignoredAlerts = parsed.map(entry => {
-                if (typeof entry === 'object' && entry !== null) {
-                  if (!entry.id || !entry.reason) {
-                    core.warning(`Ignore list のエントリに id または reason がありません: ${JSON.stringify(entry)}`);
-                  }
-                  return String(entry.id);
+              const raw = fs.readFileSync('.github/dependabot-slack-ignore.yml', 'utf8');
+              const entries = [];
+              let current = null;
+              for (const line of raw.split('\n')) {
+                const idMatch = line.match(/^\s*-?\s*id:\s*"?([^"]+)"?\s*$/);
+                const reasonMatch = line.match(/^\s*reason:\s*"?([^"]*)"?\s*$/);
+                if (idMatch) {
+                  current = { id: idMatch[1].trim() };
+                  entries.push(current);
+                } else if (reasonMatch && current) {
+                  current.reason = reasonMatch[1].trim();
                 }
-                return String(entry);
+              }
+              ignoredAlerts = entries.map(entry => {
+                if (!entry.id || !entry.reason) {
+                  core.warning(`Ignore list のエントリに id または reason がありません: ${JSON.stringify(entry)}`);
+                }
+                return String(entry.id);
               });
             } catch (e) {
               if (e.code !== 'ENOENT') {

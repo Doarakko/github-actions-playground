@@ -29,6 +29,7 @@ jobs:
       mention: "<!channel>"
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DEPENDABOT_TOKEN: ${{ secrets.DEPENDABOT_TOKEN }}
 
   weekly-medium:
     if: github.event_name == 'schedule' && github.event.schedule == '0 0 * * 1'
@@ -38,6 +39,7 @@ jobs:
       mention: "<!here>"
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DEPENDABOT_TOKEN: ${{ secrets.DEPENDABOT_TOKEN }}
 
   monthly-low:
     if: github.event_name == 'schedule' && github.event.schedule == '0 0 1 * *'
@@ -46,6 +48,7 @@ jobs:
       severity_filter: "low"
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DEPENDABOT_TOKEN: ${{ secrets.DEPENDABOT_TOKEN }}
 
   # ---------- 手動実行 ----------
   manual:
@@ -56,3 +59,4 @@ jobs:
       mention: ${{ inputs.mention }}
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DEPENDABOT_TOKEN: ${{ secrets.DEPENDABOT_TOKEN }}

@@ -15,6 +15,8 @@ on:
     secrets:
       SLACK_WEBHOOK_URL:
         required: true
+      DEPENDABOT_TOKEN:
+        required: true
 
 jobs:
   notify:
@@ -30,7 +32,7 @@ jobs:
           SEVERITY_FILTER: ${{ inputs.severity_filter }}
           MENTION: ${{ inputs.mention }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.DEPENDABOT_TOKEN }}
           script: |
             const fs = require('fs');
 
@@ -45,8 +47,10 @@ jobs:
             try {
               const raw = fs.readFileSync('.github/dependabot-slack-ignore.json', 'utf8');
               ignoredAlerts = JSON.parse(raw).ignored_alerts || [];
-            } catch (_) {
-              // ファイルが無ければ無視
+            } catch (e) {
+              if (e.code !== 'ENOENT') {
+                core.warning(`Ignore list の読み込みに失敗しました: ${e.message}`);
+              }
             }
 
             // --------------- アラート取得 ---------------
@@ -60,7 +64,7 @@ jobs:
               });
               alerts = res.data;
             } catch (e) {
-              core.warning(`Dependabot alerts の取得に失敗しました: ${e.message}`);
+              core.setFailed(`Dependabot alerts の取得に失敗しました: ${e.message}`);
               return;
             }
 
@@ -79,7 +83,7 @@ jobs:
 
               const ghsaId = a.security_advisory?.ghsa_id || '';
               if (ignoredAlerts.includes(ghsaId)) return false;
-              if (ignoredAlerts.includes(a.number)) return false;
+              if (ignoredAlerts.includes(String(a.number))) return false;
 
               return true;
             });
@@ -148,13 +152,27 @@ jobs:
                   },
                 },
                 { type: 'divider' },
-                {
-                  type: 'section',
-                  text: {
-                    type: 'mrkdwn',
-                    text: lines.join('\n'),
-                  },
-                },
+                ...(() => {
+                  const joined = lines.join('\n');
+                  if (joined.length <= 3000) {
+                    return [{ type: 'section', text: { type: 'mrkdwn', text: joined } }];
+                  }
+                  // Split into multiple sections within 3000 char limit
+                  const sections = [];
+                  let current = '';
+                  for (const line of lines) {
+                    if (current && (current + '\n' + line).length > 3000) {
+                      sections.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
+                      current = line;
+                    } else {
+                      current = current ? current + '\n' + line : line;
+                    }
+                  }
+                  if (current) {
+                    sections.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
+                  }
+                  return sections;
+                })(),
               ],
             };
 

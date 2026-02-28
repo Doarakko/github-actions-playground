@@ -19,6 +19,7 @@ safe-outputs:
     draft: true
     max: 1
     expires: 14
+    base-branch: master
     fallback-as-issue: true
   create-issue:
     title-prefix: "[Trivy Report] "

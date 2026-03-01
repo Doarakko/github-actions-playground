@@ -30,7 +30,7 @@ jobs:
         run: |
           FILE=".github/dependabot-slack-ignore.yml"
           if [ -f "$FILE" ]; then
-            echo "json=$(yq -o=json '.' "$FILE")" >> "$GITHUB_OUTPUT"
+            echo "json=$(yq -o=json -I=0 '.' "$FILE")" >> "$GITHUB_OUTPUT"
           else
             echo 'json={"ignored_alerts":[]}' >> "$GITHUB_OUTPUT"
           fi

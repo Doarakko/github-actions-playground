@@ -126,9 +126,11 @@ jobs:
                 || 'unknown';
               const emoji = severityEmoji[sev] || '⚪';
               const pkg = a.security_vulnerability?.package?.name || 'unknown';
+              const cve = a.security_advisory?.cve_id || '';
               const summary = a.security_advisory?.summary || 'No summary';
               const url = a.html_url;
-              return `${emoji} *[${sev.toUpperCase()}]* <${url}|#${a.number}> \`${pkg}\` - ${summary}`;
+              const cveLabel = cve ? ` (${cve})` : '';
+              return `${emoji} *[${sev.toUpperCase()}]* <${url}|#${a.number}> \`${pkg}\`${cveLabel} - ${summary}`;
             });
 
             const counts = {};

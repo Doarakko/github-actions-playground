@@ -98,6 +98,8 @@ jobs:
 
               const ghsaId = a.security_advisory?.ghsa_id || '';
               if (ghsaId && ignoredAlerts.includes(ghsaId)) return false;
+              const cveId = a.security_advisory?.cve_id || '';
+              if (cveId && ignoredAlerts.includes(cveId)) return false;
               if (ignoredAlerts.includes(String(a.number))) return false;
 
               return true;

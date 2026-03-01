@@ -120,7 +120,17 @@ jobs:
 
             const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
 
-            const lines = filtered.map(a => {
+            // Group alerts by severity
+            const grouped = {};
+            for (const a of filtered) {
+              const sev = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+              if (!grouped[sev]) grouped[sev] = [];
+              grouped[sev].push(a);
+            }
+
+            const formatAlert = (a) => {
               const sev = a.security_vulnerability?.severity?.toLowerCase()
                 || a.security_advisory?.severity?.toLowerCase()
                 || 'unknown';
@@ -131,18 +141,11 @@ jobs:
               const url = a.html_url;
               const cveLabel = cve ? ` (${cve})` : '';
               return `${emoji} *[${sev.toUpperCase()}]* <${url}|#${a.number}> \`${pkg}\`${cveLabel} - ${summary}`;
-            });
+            };
 
-            const counts = {};
-            filtered.forEach(a => {
-              const sev = a.security_vulnerability?.severity?.toLowerCase()
-                || a.security_advisory?.severity?.toLowerCase()
-                || 'unknown';
-              counts[sev] = (counts[sev] || 0) + 1;
-            });
-            const countSummary = Object.entries(counts)
-              .sort(([a], [b]) => severityOrder.indexOf(a) - severityOrder.indexOf(b))
-              .map(([sev, n]) => `${severityEmoji[sev] || '⚪'} ${sev}: ${n}`)
+            const countSummary = severityOrder
+              .filter(sev => grouped[sev])
+              .map(sev => `${severityEmoji[sev] || '⚪'} ${sev}: ${grouped[sev].length}`)
               .join('  |  ');
 
             const mention = (process.env.MENTION || '').trim();
@@ -170,27 +173,27 @@ jobs:
                     text: `*Repo:* <${repoUrl}|${context.repo.owner}/${context.repo.repo}>\n*Filter:* ${filterStr}\n*Summary:* ${countSummary}`,
                   },
                 },
-                { type: 'divider' },
                 ...(() => {
-                  const joined = lines.join('\n');
-                  if (joined.length <= 3000) {
-                    return [{ type: 'section', text: { type: 'mrkdwn', text: joined } }];
-                  }
-                  // Split into multiple sections within 3000 char limit
-                  const sections = [];
-                  let current = '';
-                  for (const line of lines) {
-                    if (current && (current + '\n' + line).length > 3000) {
-                      sections.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
-                      current = line;
-                    } else {
-                      current = current ? current + '\n' + line : line;
+                  const alertBlocks = [];
+                  const presentSeverities = severityOrder.filter(sev => grouped[sev]);
+                  for (const sev of presentSeverities) {
+                    alertBlocks.push({ type: 'divider' });
+                    const lines = grouped[sev].map(formatAlert);
+                    // Split into sections within 3000 char limit
+                    let current = '';
+                    for (const line of lines) {
+                      if (current && (current + '\n' + line).length > 3000) {
+                        alertBlocks.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
+                        current = line;
+                      } else {
+                        current = current ? current + '\n' + line : line;
+                      }
+                    }
+                    if (current) {
+                      alertBlocks.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
                     }
                   }
-                  if (current) {
-                    sections.push({ type: 'section', text: { type: 'mrkdwn', text: current } });
-                  }
-                  return sections;
+                  return alertBlocks;
                 })(),
               ],
             };

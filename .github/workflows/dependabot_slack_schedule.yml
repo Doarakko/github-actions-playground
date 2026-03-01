@@ -2,25 +2,25 @@ name: Dependabot Slack Notification (Scheduled)
 
 on:
   schedule:
-    # critical/high: 毎日 9:00 JST (0:00 UTC)
+    # critical/high: daily at 9:00 JST (0:00 UTC)
     - cron: "0 0 * * *"
-    # medium: 毎週月曜 9:00 JST
+    # medium: weekly on Monday at 9:00 JST
     - cron: "0 0 * * 1"
-    # low: 毎月1日 9:00 JST
+    # low: monthly on 1st at 9:00 JST
     - cron: "0 0 1 * *"
   workflow_dispatch:
     inputs:
       severity_filter:
-        description: "通知するセキュリティレベル (all / critical,high / medium / low)"
+        description: "Severity levels to notify (all / critical,high / medium / low)"
         required: false
         default: "all"
       mention:
-        description: "Slack メンション先 (例: @channel, <@U12345>)"
+        description: "Slack mention target (e.g. @channel, <@U12345>)"
         required: false
         default: ""
 
 jobs:
-  # ---------- スケジュール実行 ----------
+  # ---------- Scheduled runs ----------
   daily-critical-high:
     if: github.event_name == 'schedule' && github.event.schedule == '0 0 * * *'
     uses: ./.github/workflows/dependabot_slack_notification.yml
@@ -50,7 +50,7 @@ jobs:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       DEPENDABOT_TOKEN: ${{ secrets.DEPENDABOT_TOKEN }}
 
-  # ---------- 手動実行 ----------
+  # ---------- Manual run ----------
   manual:
     if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/dependabot_slack_notification.yml

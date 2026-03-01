@@ -4,11 +4,11 @@ on:
   workflow_call:
     inputs:
       severity_filter:
-        description: "通知するセキュリティレベル (カンマ区切り: critical,high,medium,low / all)"
+        description: "Severity levels to notify (comma-separated: critical,high,medium,low / all)"
         required: true
         type: string
       mention:
-        description: "Slack メンション先 (例: @channel, @here, <@U12345>, <!subteam^S12345>)"
+        description: "Slack mention target (e.g. @channel, @here, <@U12345>, <!subteam^S12345>)"
         required: false
         type: string
         default: ""
@@ -51,24 +51,24 @@ jobs:
               ? severityOrder
               : filterStr.split(',').map(s => s.trim());
 
-            // --------------- Ignore リスト読み込み ---------------
+            // --------------- Load ignore list ---------------
             let ignoredAlerts = [];
             try {
               const ignoreData = JSON.parse(process.env.IGNORE_LIST_JSON || '{}');
               const entries = ignoreData.ignored_alerts || [];
               for (const entry of entries) {
                 if (!entry.id || !entry.reason) {
-                  core.setFailed(`Ignore list のエントリに id と reason は必須です: ${JSON.stringify(entry)}`);
+                  core.setFailed(`Ignore list entry requires both id and reason: ${JSON.stringify(entry)}`);
                   return;
                 }
                 ignoredAlerts.push(String(entry.id));
               }
             } catch (e) {
-              core.setFailed(`Ignore list の JSON パースに失敗しました: ${e.message}`);
+              core.setFailed(`Failed to parse ignore list JSON: ${e.message}`);
               return;
             }
 
-            // --------------- アラート取得 ---------------
+            // --------------- Fetch alerts ---------------
             let alerts = [];
             try {
               const res = await github.rest.dependabot.listAlertsForRepo({
@@ -79,16 +79,16 @@ jobs:
               });
               alerts = res.data;
             } catch (e) {
-              core.setFailed(`Dependabot alerts の取得に失敗しました: ${e.message}`);
+              core.setFailed(`Failed to fetch Dependabot alerts: ${e.message}`);
               return;
             }
 
             if (alerts.length === 0) {
-              core.info('オープンな Dependabot アラートはありません。');
+              core.info('No open Dependabot alerts found.');
               return;
             }
 
-            // --------------- フィルタリング ---------------
+            // --------------- Filter ---------------
             const filtered = alerts.filter(a => {
               const severity = a.security_vulnerability?.severity?.toLowerCase()
                 || a.security_advisory?.severity?.toLowerCase()
@@ -106,11 +106,11 @@ jobs:
             });
 
             if (filtered.length === 0) {
-              core.info(`対象セキュリティレベル (${filterStr}) のアラートはありません。`);
+              core.info(`No alerts found for severity filter (${filterStr}).`);
               return;
             }
 
-            // --------------- Slack メッセージ構築 ---------------
+            // --------------- Build Slack message ---------------
             const severityEmoji = {
               critical: '🔴',
               high:     '🟠',
@@ -153,7 +153,7 @@ jobs:
                   type: 'header',
                   text: {
                     type: 'plain_text',
-                    text: `🔒 Dependabot Security Alerts (${filtered.length} 件)`,
+                    text: `🔒 Dependabot Security Alerts (${filtered.length})`,
                   },
                 },
                 ...(mention ? [{
@@ -195,10 +195,10 @@ jobs:
               ],
             };
 
-            // --------------- Slack 送信 ---------------
+            // --------------- Send to Slack ---------------
             const webhookUrl = process.env.SLACK_WEBHOOK_URL;
             if (!webhookUrl) {
-              core.setFailed('SLACK_WEBHOOK_URL が設定されていません。');
+              core.setFailed('SLACK_WEBHOOK_URL is not set.');
               return;
             }
 
@@ -210,12 +210,12 @@ jobs:
                 body: JSON.stringify(payload),
               });
             } catch (e) {
-              core.setFailed(`Slack 送信中にエラーが発生しました: ${e.message}`);
+              core.setFailed(`Failed to send Slack notification: ${e.message}`);
               return;
             }
 
             if (!resp.ok) {
-              core.setFailed(`Slack 送信失敗: ${resp.status} ${await resp.text()}`);
+              core.setFailed(`Slack notification failed: ${resp.status} ${await resp.text()}`);
             } else {
-              core.info(`Slack に ${filtered.length} 件のアラートを通知しました。`);
+              core.info(`Notified ${filtered.length} alerts to Slack.`);
             }

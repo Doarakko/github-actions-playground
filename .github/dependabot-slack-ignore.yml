@@ -1,1 +1,7 @@
-ignored_alerts: []
+ignored_alerts:
+  - id: "CVE-2022-23491"
+    reason: "ignoreのテスト"
+  - id: "47"
+    reason: "ignoreのテスト"
+  - id: "GHSA-554w-wpv2-vw27"
+    reason: "ignoreのテスト"

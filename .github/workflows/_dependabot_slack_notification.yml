@@ -186,10 +186,26 @@ jobs:
                 },
                 ...severityOrder
                   .filter(sev => grouped[sev])
-                  .flatMap(sev => [
-                    { type: 'divider' },
-                    { type: 'section', text: { type: 'mrkdwn', text: grouped[sev].map(formatAlert).join('\n') } },
-                  ]),
+                  .flatMap(sev => {
+                    const lines = grouped[sev].map(formatAlert);
+                    // Split into multiple section blocks to stay under Slack's 3000 char limit
+                    const chunks = [];
+                    let current = '';
+                    for (const line of lines) {
+                      const next = current ? current + '\n' + line : line;
+                      if (next.length > 2900 && current) {
+                        chunks.push(current);
+                        current = line;
+                      } else {
+                        current = next;
+                      }
+                    }
+                    if (current) chunks.push(current);
+                    return [
+                      { type: 'divider' },
+                      ...chunks.map(chunk => ({ type: 'section', text: { type: 'mrkdwn', text: chunk } })),
+                    ];
+                  }),
               ],
             };
 

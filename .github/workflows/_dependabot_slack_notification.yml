@@ -1,0 +1,219 @@
+name: Dependabot Slack Notification (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      severity_filter:
+        description: "Severity levels to notify (comma-separated: critical,high,medium,low / all)"
+        required: true
+        type: string
+      mention:
+        description: "Slack mention target (e.g. <!channel>, <!here>, <@U12345>, <!subteam^S12345>)"
+        required: false
+        type: string
+        default: ""
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
+      DEPENDABOT_TOKEN:
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+
+      - name: Parse ignore list
+        id: ignore
+        run: |
+          FILE=".github/dependabot_slack_ignore.yml"
+          if [ -f "$FILE" ]; then
+            {
+              echo 'json<<JSON'
+              yq -o=json -I=0 '.' "$FILE"
+              echo 'JSON'
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo 'json<<JSON'
+              echo '{"ignored_alerts":[]}'
+              echo 'JSON'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch Dependabot alerts and notify Slack
+        uses: actions/github-script@v7
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SEVERITY_FILTER: ${{ inputs.severity_filter }}
+          MENTION: ${{ inputs.mention }}
+          IGNORE_LIST_JSON: ${{ steps.ignore.outputs.json }}
+        with:
+          github-token: ${{ secrets.DEPENDABOT_TOKEN }}
+          script: |
+            const severityOrder = ['critical', 'high', 'medium', 'low'];
+            const filterStr = (process.env.SEVERITY_FILTER || 'all').toLowerCase();
+            const allowedSeverities = filterStr === 'all'
+              ? severityOrder
+              : filterStr.split(',').map(s => s.trim().toLowerCase());
+
+            // --------------- Load ignore list ---------------
+            let ignoredAlerts = [];
+            try {
+              const ignoreData = JSON.parse(process.env.IGNORE_LIST_JSON || '{}');
+              const entries = ignoreData.ignored_alerts || [];
+              for (const entry of entries) {
+                if (!entry.id || !entry.reason) {
+                  core.setFailed(`Ignore list entry requires both id and reason: ${JSON.stringify(entry)}`);
+                  return;
+                }
+                ignoredAlerts.push(String(entry.id));
+              }
+            } catch (e) {
+              core.setFailed(`Failed to parse ignore list JSON: ${e.message}`);
+              return;
+            }
+
+            // --------------- Fetch alerts ---------------
+            let alerts = [];
+            try {
+              const resp = await github.rest.dependabot.listAlertsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+              });
+              alerts = resp.data;
+            } catch (e) {
+              core.setFailed(`Failed to fetch Dependabot alerts: ${e.message}`);
+              return;
+            }
+
+            if (alerts.length === 0) {
+              core.info('No open Dependabot alerts found.');
+              return;
+            }
+
+            // --------------- Filter ---------------
+            const filtered = alerts.filter(a => {
+              const severity = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+
+              if (!allowedSeverities.includes(severity)) return false;
+
+              const ghsaId = a.security_advisory?.ghsa_id || '';
+              if (ghsaId && ignoredAlerts.includes(ghsaId)) return false;
+              const cveId = a.security_advisory?.cve_id || '';
+              if (cveId && ignoredAlerts.includes(cveId)) return false;
+              if (ignoredAlerts.includes(String(a.number))) return false;
+
+              return true;
+            });
+
+            if (filtered.length === 0) {
+              core.info(`No alerts found for severity filter (${filterStr}).`);
+              return;
+            }
+
+            // --------------- Build Slack message ---------------
+            const severityEmoji = {
+              critical: '🔴',
+              high:     '🟠',
+              medium:   '🟡',
+              low:      '🔵',
+            };
+
+            const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
+
+            // Group alerts by severity
+            const grouped = {};
+            for (const a of filtered) {
+              const sev = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+              if (!grouped[sev]) grouped[sev] = [];
+              grouped[sev].push(a);
+            }
+
+            const formatAlert = (a) => {
+              const sev = a.security_vulnerability?.severity?.toLowerCase()
+                || a.security_advisory?.severity?.toLowerCase()
+                || 'unknown';
+              const emoji = severityEmoji[sev] || '⚪';
+              const pkg = a.security_vulnerability?.package?.name || 'unknown';
+              const cve = a.security_advisory?.cve_id || '';
+              const summary = a.security_advisory?.summary || 'No summary';
+              const url = a.html_url;
+              const cveLabel = cve ? ` (${cve})` : '';
+              return `${emoji} *[${sev.toUpperCase()}]* <${url}|#${a.number}> \`${pkg}\`${cveLabel} - ${summary}`;
+            };
+
+            const countSummary = severityOrder
+              .filter(sev => grouped[sev])
+              .map(sev => `${severityEmoji[sev] || '⚪'} ${sev}: ${grouped[sev].length}`)
+              .join('  |  ');
+
+            const mention = (process.env.MENTION || '').trim();
+
+            const payload = {
+              blocks: [
+                {
+                  type: 'header',
+                  text: {
+                    type: 'plain_text',
+                    text: `🔒 Dependabot Security Alerts (${filtered.length})`,
+                  },
+                },
+                ...(mention ? [{
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: mention,
+                  },
+                }] : []),
+                {
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: `*Repo:* <${repoUrl}|${context.repo.owner}/${context.repo.repo}>\n*Filter:* ${filterStr}\n*Summary:* ${countSummary}`,
+                  },
+                },
+                ...severityOrder
+                  .filter(sev => grouped[sev])
+                  .flatMap(sev => [
+                    { type: 'divider' },
+                    { type: 'section', text: { type: 'mrkdwn', text: grouped[sev].map(formatAlert).join('\n') } },
+                  ]),
+              ],
+            };
+
+            // --------------- Send to Slack ---------------
+            const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+            if (!webhookUrl) {
+              core.setFailed('SLACK_WEBHOOK_URL is not set.');
+              return;
+            }
+
+            let resp;
+            try {
+              resp = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+            } catch (e) {
+              core.setFailed(`Failed to send Slack notification: ${e.message}`);
+              return;
+            }
+
+            if (!resp.ok) {
+              core.setFailed(`Slack notification failed: ${resp.status} ${await resp.text()}`);
+            } else {
+              core.info(`Notified ${filtered.length} alerts to Slack.`);
+            }

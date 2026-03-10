@@ -1,0 +1,84 @@
+name: Trivy Scan (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      severity:
+        description: "Severity levels (e.g. CRITICAL,HIGH,MEDIUM,LOW)"
+        required: false
+        type: string
+        default: "CRITICAL,HIGH"
+      mention:
+        description: "Slack mention (e.g. <!subteam^S12345> or <@U12345>)"
+        required: false
+        type: string
+        default: ""
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
+
+jobs:
+  scan:
+    name: Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run Trivy vulnerability scanner (table)
+        uses: aquasecurity/trivy-action@0.34.2
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "library"
+          severity: ${{ inputs.severity }}
+
+      - name: Run Trivy vulnerability scanner (JSON)
+        if: ${{ failure() }}
+        uses: aquasecurity/trivy-action@0.34.2
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "json"
+          output: "trivy-results.json"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "library"
+          severity: ${{ inputs.severity }}
+
+      - name: Build Slack payload
+        id: slack_payload
+        if: ${{ failure() }}
+        uses: actions/github-script@v8
+        env:
+          SEVERITY_FILTER: ${{ inputs.severity }}
+          MENTION: ${{ inputs.mention }}
+        with:
+          result-encoding: string
+          script: |
+            const fs = require('fs');
+            process.env.TRIVY_RESULT_JSON = fs.readFileSync('trivy-results.json', 'utf8');
+            const script = require('./.github/scripts/trivy-slack-notification.js');
+            return script({context, core});
+
+      - name: Notify Slack
+        if: ${{ failure() && steps.slack_payload.outputs.has_vulns == 'true' }}
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook-type: webhook-trigger
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: ${{ steps.slack_payload.outputs.result }}
+
+      - name: Notify Slack (fallback)
+        if: ${{ failure() && steps.slack_payload.outputs.has_vulns != 'true' }}
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook-type: webhook-trigger
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "${{ inputs.mention && format('{0}\n', inputs.mention) || '' }}${{ github.event.repository.name }}のセキュリティスキャン(${{ inputs.severity }})に失敗しました。原因を確認してください。\nAction: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }

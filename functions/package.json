@@ -27,5 +27,9 @@
     "firebase-functions-test": "^0.2.0",
     "typescript": "^4.5.4"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "protobufjs": "7.2.5",
+    "jsonwebtoken": "9.0.0"
+  }
 }

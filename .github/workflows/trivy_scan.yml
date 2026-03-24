@@ -1,13 +1,6 @@
-name: Trivy Scan (Scheduled)
+name: Trivy Scan
 
 on:
-  schedule:
-    # CRITICAL,HIGH: weekdays at 9:00 JST (0:00 UTC)
-    - cron: "0 0 * * 1-5"
-    # MEDIUM: weekly on Monday at 9:00 JST
-    - cron: "0 0 * * 1"
-    # LOW: monthly on 1st at 9:00 JST
-    - cron: "0 0 1 * *"
   workflow_dispatch:
     inputs:
       severity:

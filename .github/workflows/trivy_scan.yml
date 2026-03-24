@@ -13,7 +13,34 @@ on:
         default: ""
 
 jobs:
+  # ---------- Scheduled runs ----------
+  daily-critical-high:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 0 * * 1-5'
+    uses: ./.github/workflows/_trivy_scan.yml
+    with:
+      severity: "CRITICAL,HIGH"
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  weekly-medium:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 0 * * 1'
+    uses: ./.github/workflows/_trivy_scan.yml
+    with:
+      severity: "MEDIUM"
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  monthly-low:
+    if: github.event_name == 'schedule' && github.event.schedule == '0 0 1 * *'
+    uses: ./.github/workflows/_trivy_scan.yml
+    with:
+      severity: "LOW"
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ---------- Manual run ----------
   manual:
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/_trivy_scan.yml
     with:
       severity: ${{ inputs.severity }}

@@ -1,13 +1,6 @@
 name: Dependabot Slack Notification (Scheduled)
 
 on:
-  schedule:
-    # critical/high: weekdays at 9:00 JST (0:00 UTC)
-    - cron: "0 0 * * 1-5"
-    # medium: weekly on Monday at 9:00 JST
-    - cron: "0 0 * * 1"
-    # low: monthly on 1st at 9:00 JST
-    - cron: "0 0 1 * *"
   workflow_dispatch:
     inputs:
       severity_filter:

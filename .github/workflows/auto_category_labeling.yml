@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: remove pikachu if pokemon except pikachu
-        uses: actions/github-script@v3
+        uses: actions/github-script@ffc2c79a5b2490bd33e0a41c1de74b877714d736 # v3.2.0
         if: >-
           contains(github.event.issue.labels.*.name, 'pokemon/pikachu')
         with:
@@ -35,7 +35,7 @@ jobs:
               });
             }
       - name: add pikachu if no pokemon
-        uses: actions/github-script@v3
+        uses: actions/github-script@ffc2c79a5b2490bd33e0a41c1de74b877714d736 # v3.2.0
         if: >-
           ! contains(join(github.event.issue.labels.*.name, ','), 'pokemon/')
         with:

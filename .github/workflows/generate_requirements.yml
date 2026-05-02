@@ -15,18 +15,18 @@ jobs:
         os: [ubuntu-18.04]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2.7.0
+      - uses: actions/setup-python@e9aba2c848f5ebd159c070c61ea2c4e2b122355e # v2.3.4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Run image
-        uses: abatilo/actions-poetry@v2.0.0
+        uses: abatilo/actions-poetry@1f9adef0261964471fcf93ba269e1762a33a8a26 # v2.0.0
         with:
           poetry-version: ${{ matrix.poetry-version }}
       - name: Export requirements.txt
         run: poetry export -f requirements.txt --output requirements.txt
       - name: Update requirements.txt
-        uses: stefanzweifel/git-auto-commit-action@v4.12.0
+        uses: stefanzweifel/git-auto-commit-action@abd87b7d94702070bef78dc1d56b6928b8fa9ecc # v4.12.0
         with:
           commit_message: update requirements.txt
           commit_user_name: GitHub Actions

@@ -48,7 +48,7 @@ jobs:
 
       - name: Build Slack payload
         id: alerts
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           SEVERITY_FILTER: ${{ inputs.severity_filter }}
           MENTION: ${{ inputs.mention }}
@@ -62,7 +62,7 @@ jobs:
 
       - name: Notify Slack
         if: steps.alerts.outputs.has_alerts == 'true'
-        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook-type: webhook-trigger
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}

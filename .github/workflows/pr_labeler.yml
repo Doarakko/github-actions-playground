@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: add pedri
-        uses: actions/github-script@v3
+        uses: actions/github-script@ffc2c79a5b2490bd33e0a41c1de74b877714d736 # v3.2.0
         if: >-
           contains(github.event.pull_request.body, 'pedri')
         with:
@@ -21,7 +21,7 @@ jobs:
               labels: ['barcelona/pedri']
             });
       - name: add gavi
-        uses: actions/github-script@v3
+        uses: actions/github-script@ffc2c79a5b2490bd33e0a41c1de74b877714d736 # v3.2.0
         if: >-
           contains(github.event.pull_request.body, 'gavi')
         with:

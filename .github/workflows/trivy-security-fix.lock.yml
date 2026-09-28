@@ -22,13 +22,10 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"884375ed05a4fcb5e6dbbd23d152f5e7d4f703beaad22409d54017f70812c4b5","compiler_version":"v0.50.7"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"899edda43f222b86f33aecc84f764fc6c32e8d711517a2982a626b6cace3bb64","compiler_version":"v0.50.7"}
 
 name: "Trivy Security Fix"
 "on":
-  schedule:
-  - cron: "9 23 * * *"
-    # Friendly format: daily around 9am utc+9 (scattered)
   workflow_dispatch:
 
 permissions: {}
@@ -212,8 +209,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    concurrency:
-      group: "gh-aw-copilot-${{ github.workflow }}"
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_AW_ASSETS_ALLOWED_EXTS: ""
